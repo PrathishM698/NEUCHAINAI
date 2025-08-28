@@ -5,3 +5,4 @@ tensorflow
 xgboost
 scikit-learn
 joblib
+dill
