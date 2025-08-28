@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import cv2
@@ -10,10 +9,12 @@ from tensorflow.keras.models import load_model
 import xgboost as xgb
 import joblib
 
+# 🧠 Set page configuration
 st.set_page_config(page_title="NeuroChainAI", layout="centered")
 st.title("🧠 Neurological Disorder Prediction")
 st.subheader("Upload a Brain Scan Image")
 
+# 📁 File uploader
 uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
@@ -21,20 +22,28 @@ if uploaded_file is not None:
     image = cv2.imdecode(file_bytes, 0)
     resized = cv2.resize(image, (64, 64)).reshape(1, 64, 64, 1) / 255.0
 
-    cnn_model = load_model("cnn_model.keras")
+    # ✅ FIXED: Use robust path loading for .keras model
+    base_path = os.path.dirname(__file__)
+    cnn_path = os.path.join(base_path, "cnn_model.keras")
+    gru_path = os.path.join(base_path, "gru_model.keras")
+    xgb_path = os.path.join(base_path, "xgb_model.pkl")
+
+    cnn_model = load_model(cnn_path)
+
     from tensorflow.keras import Sequential
     cnn_feature_model = Sequential(cnn_model.layers[:-2])
     features = cnn_feature_model.predict(resized)
 
-    gru_model = load_model("gru_model.keras")
+    gru_model = load_model(gru_path)
     gru_pred = gru_model.predict(features.reshape(1, 1, features.shape[1]))[0]
 
-    xgb_model = joblib.load("xgb_model.pkl")
+    xgb_model = joblib.load(xgb_path)
     xgb_pred_label = xgb_model.predict(features)[0]
     xgb_pred_onehot = np.zeros(5)
     xgb_pred_onehot[xgb_pred_label] = 1
 
     final_pred = (0.4 * gru_pred) + (0.6 * xgb_pred_onehot)
+
     labels = [
         "Alzheimer's likelihood",
         "Parkinson's likelihood",
@@ -56,6 +65,7 @@ if uploaded_file is not None:
         "Timestamp": timestamp
     }
 
+    # 📊 Display results
     st.image(image, caption="Uploaded Scan", width=300)
     st.markdown("## 🧪 Predicted Possibilities")
     for key, val in result.items():
@@ -68,6 +78,7 @@ if uploaded_file is not None:
     st.info("These percentages are illustrative only. A licensed clinician must review real scans.")
     st.markdown("###### DISCLAIMER: Demo results are not diagnostic. For concerns, consult a neurologist.")
 
+    # 📝 Append to ledger file
     os.makedirs("ledger", exist_ok=True)
     with open("ledger/ledger_store.jsonl", "a") as f:
         json.dump({**ledger, **result}, f)
